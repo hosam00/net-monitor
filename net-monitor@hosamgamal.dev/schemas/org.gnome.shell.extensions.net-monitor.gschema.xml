@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.net-monitor"
+          path="/org/gnome/shell/extensions/net-monitor/">
+
+    <key name="enabled" type="b">
+      <default>true</default>
+      <summary>Enable monitoring</summary>
+      <description>Whether network monitoring is active.</description>
+    </key>
+
+    <key name="start-paused" type="b">
+      <default>false</default>
+      <summary>Start paused</summary>
+      <description>Start the extension in paused state.</description>
+    </key>
+
+    <key name="refresh-interval-ms" type="i">
+      <default>1000</default>
+      <summary>Refresh interval in milliseconds</summary>
+      <description>How often to update panel and monitors (500-5000ms).</description>
+    </key>
+
+    <key name="rate-unit-mode" type="s">
+      <default>'auto'</default>
+      <summary>Rate unit mode</summary>
+      <description>Unit display mode: auto, bytes, or bits.</description>
+    </key>
+
+    <key name="decimal-precision" type="i">
+      <default>1</default>
+      <summary>Decimal precision</summary>
+      <description>Number of decimal places for rate display.</description>
+    </key>
+
+    <key name="panel-display-mode" type="s">
+      <default>'down-up'</default>
+      <summary>Panel display mode</summary>
+      <description>Display mode: down-up, compact, down-only, up-only, total-only.</description>
+    </key>
+
+    <key name="auto-detect-interfaces" type="b">
+      <default>true</default>
+      <summary>Auto-detect interfaces</summary>
+      <description>Automatically detect active interfaces.</description>
+    </key>
+
+    <key name="included-interfaces" type="as">
+      <default>[]</default>
+      <summary>Included interfaces</summary>
+      <description>List of interfaces to monitor when auto-detect is off.</description>
+    </key>
+
+    <key name="excluded-interfaces" type="as">
+      <default>[]</default>
+      <summary>Excluded interfaces</summary>
+      <description>List of interfaces to exclude from monitoring.</description>
+    </key>
+
+    <key name="ignore-loopback" type="b">
+      <default>true</default>
+      <summary>Ignore loopback</summary>
+      <description>Ignore loopback interface (lo).</description>
+    </key>
+
+    <key name="ignore-virtual" type="b">
+      <default>true</default>
+      <summary>Ignore virtual interfaces</summary>
+      <description>Ignore virtual interfaces (docker, veth, br-, etc.).</description>
+    </key>
+
+    <key name="separate-vpn" type="b">
+      <default>false</default>
+      <summary>Separate VPN traffic</summary>
+      <description>Show VPN interfaces as separate entries.</description>
+    </key>
+
+    <key name="enable-process-monitor" type="b">
+      <default>true</default>
+      <summary>Enable per-process monitoring</summary>
+      <description>Track bandwidth usage per application or process.</description>
+    </key>
+
+    <key name="process-grouping-mode" type="s">
+      <default>'smart'</default>
+      <summary>Process grouping mode</summary>
+      <description>Grouping mode: disabled, smart, aggressive.</description>
+    </key>
+
+    <key name="ignored-processes" type="as">
+      <default>[]</default>
+      <summary>Ignored processes</summary>
+      <description>List of process names to ignore in per-app view.</description>
+    </key>
+
+    <key name="top-process-count" type="i">
+      <default>8</default>
+      <summary>Top process count</summary>
+      <description>Number of top processes to show in popup.</description>
+    </key>
+
+    <key name="persistence-enabled" type="b">
+      <default>true</default>
+      <summary>Enable persistence</summary>
+      <description>Save usage history to disk.</description>
+    </key>
+
+    <key name="retention-days" type="i">
+      <default>90</default>
+      <summary>Retention days</summary>
+      <description>Number of days to keep historical data.</description>
+    </key>
+
+    <key name="daily-cap-bytes" type="t">
+      <default>0</default>
+      <summary>Daily cap in bytes</summary>
+      <description>Daily data cap threshold (0 = disabled).</description>
+    </key>
+
+    <key name="monthly-cap-bytes" type="t">
+      <default>0</default>
+      <summary>Monthly cap in bytes</summary>
+      <description>Monthly data cap threshold (0 = disabled).</description>
+    </key>
+
+    <key name="spike-threshold-bytes-per-sec" type="t">
+      <default>0</default>
+      <summary>Spike threshold B/s</summary>
+      <description>Per-app spike threshold in bytes/sec (0 = disabled).</description>
+    </key>
+
+    <key name="notification-cooldown-sec" type="i">
+      <default>300</default>
+      <summary>Notification cooldown seconds</summary>
+      <description>Minimum seconds between repeated alerts.</description>
+    </key>
+
+    <key name="quiet-hours-enabled" type="b">
+      <default>false</default>
+      <summary>Enable quiet hours</summary>
+      <description>Suppress notifications during quiet hours.</description>
+    </key>
+
+    <key name="quiet-hours-start" type="s">
+      <default>'22:00'</default>
+      <summary>Quiet hours start</summary>
+      <description>Start time for quiet hours (HH:MM 24h).</description>
+    </key>
+
+    <key name="quiet-hours-end" type="s">
+      <default>'07:00'</default>
+      <summary>Quiet hours end</summary>
+      <description>End time for quiet hours (HH:MM 24h).</description>
+    </key>
+
+    <key name="debug-enabled" type="b">
+      <default>false</default>
+      <summary>Enable debug mode</summary>
+      <description>Enable verbose logging for troubleshooting.</description>
+    </key>
+
+    <key name="show-compact" type="b">
+      <default>false</default>
+      <summary>Compact panel mode</summary>
+      <description>Show compact panel indicator.</description>
+    </key>
+
+    <key name="show-app-icons" type="b">
+      <default>true</default>
+      <summary>Show app icons</summary>
+      <description>Show application icons in the popup.</description>
+    </key>
+
+  </schema>
+</schemalist>

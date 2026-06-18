@@ -1,0 +1,13 @@
+{
+  "name": "Net Monitor",
+  "description": "Monitor network usage: live bandwidth in top panel, per-app traffic, daily/monthly history, and alerts",
+  "uuid": "net-monitor@hosamgamal.dev",
+  "shell-version": [
+    "45",
+    "46",
+    "47"
+  ],
+  "settings-schema": "org.gnome.shell.extensions.net-monitor",
+  "url": "https://github.com/hosamgamal/net-monitor",
+  "version": 1
+}

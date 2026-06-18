@@ -1,0 +1,61 @@
+/* Net Monitor GNOME Extension Styles */
+
+.net-monitor-panel-label {
+    font-size: 11px;
+    font-weight: normal;
+    padding: 0 4px;
+    text-align: center;
+}
+
+.net-monitor-menu-header {
+    font-weight: bold;
+    font-size: 12px;
+    padding: 6px 12px;
+}
+
+.net-monitor-section-title {
+    font-weight: bold;
+    font-size: 10px;
+    color: #9a9a9a;
+    padding: 4px 12px;
+    text-transform: uppercase;
+}
+
+.net-monitor-interface-row {
+    font-size: 11px;
+    padding: 2px 12px;
+    font-family: monospace;
+}
+
+.net-monitor-history-row {
+    font-size: 11px;
+    padding: 4px 12px;
+    font-family: monospace;
+}
+
+.net-monitor-app-row {
+    font-size: 11px;
+    padding: 2px 12px;
+    font-family: monospace;
+}
+
+.net-monitor-alert-critical {
+    font-weight: bold;
+    color: #ff4444;
+    padding: 2px 12px;
+}
+
+.net-monitor-alert-warning {
+    color: #ffaa00;
+    padding: 2px 12px;
+}
+
+.net-monitor-alert-info {
+    color: #44aaff;
+    padding: 2px 12px;
+}
+
+.net-monitor-paused-label {
+    color: #888888;
+    font-style: italic;
+}

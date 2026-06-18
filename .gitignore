@@ -1,0 +1,5 @@
+*.compiled
+daily-totals.json
+monthly-totals.json
+.fuse_hidden*
+*.zip
