@@ -1,4 +1,3 @@
-import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
@@ -9,7 +8,7 @@ import {HistoryStore} from './monitors/historyStore.js';
 import {Alerts} from './monitors/alerts.js';
 import {PanelIndicator} from './panel.js';
 import {MonitorMenu} from './menu.js';
-import {setDebugEnabled, debug, error, info} from './utils/debug.js';
+import {setDebugEnabled, error, info} from './utils/debug.js';
 
 export default class NetMonitorExtension extends Extension {
     enable() {
@@ -40,9 +39,11 @@ export default class NetMonitorExtension extends Extension {
             this.openPreferences();
         };
 
-        // Track popup visibility to throttle heavy process scans
+        // Heavy per-process scans only run while the popup is open. Resample
+        // on open so the app list is populated the moment it becomes visible.
         this._indicator.menu.connect('open-state-changed', (menu, open) => {
             this._processMonitor.setPopupVisible(open);
+            if (open) this._doSample();
         });
 
         if (!this._paused) {

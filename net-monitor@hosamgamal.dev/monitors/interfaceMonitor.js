@@ -1,6 +1,6 @@
 import { readNetDev } from '../utils/procfs.js';
 import { parseNetDev, isLoopback, isVirtualInterface } from '../utils/parsing.js';
-import { debug, error } from '../utils/debug.js';
+import { error } from '../utils/debug.js';
 
 export class InterfaceMonitor {
     constructor(settings) {

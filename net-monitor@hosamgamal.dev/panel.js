@@ -97,8 +97,4 @@ export var PanelIndicator = GObject.registerClass({
             this._icon.icon_name = PANEL_ICON_NAME;
         }
     }
-
-    destroy() {
-        super.destroy();
-    }
 });

@@ -5,9 +5,12 @@
   "shell-version": [
     "45",
     "46",
-    "47"
+    "47",
+    "48",
+    "49",
+    "50"
   ],
   "settings-schema": "org.gnome.shell.extensions.net-monitor",
   "url": "https://github.com/hosam00/net-monitor",
-  "version": 1
+  "version": 2
 }

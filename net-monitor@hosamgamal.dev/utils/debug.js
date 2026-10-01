@@ -6,10 +6,6 @@ export function setDebugEnabled(enabled) {
     debugEnabled = enabled;
 }
 
-export function isDebugEnabled() {
-    return debugEnabled;
-}
-
 export function log(level, ...args) {
     const timestamp = new Date().toISOString();
     const parts = args.map(a => {
@@ -54,26 +50,4 @@ export function warn(...args) {
 
 export function error(...args) {
     log('error', ...args);
-}
-
-export function getLogHistory() {
-    return logHistory.slice();
-}
-
-export function clearLogHistory() {
-    logHistory.length = 0;
-}
-
-export function getDiagnostics(state) {
-    return {
-        extensionVersion: 1,
-        shellVersion: '46',
-        debugEnabled,
-        activeInterfaces: state?.interfaces || [],
-        sampleInterval: state?.interval || 1000,
-        databaseStatus: state?.dbStatus || 'unknown',
-        helperStatus: state?.helperStatus || 'none',
-        lastMonitorError: state?.lastError || null,
-        logCount: logHistory.length
-    };
 }

@@ -1,7 +1,7 @@
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import { formatDate } from '../utils/time.js';
-import { debug, error, info } from '../utils/debug.js';
+import { debug, error, info, warn } from '../utils/debug.js';
 
 export class HistoryStore {
     constructor(settings) {

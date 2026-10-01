@@ -12,8 +12,6 @@ export default class NetMonitorPrefs extends ExtensionPreferences {
         window.add(this._buildAppPage(settings));
         window.add(this._buildHistoryPage(settings));
         window.add(this._buildAlertsPage(settings));
-        window.add(this._buildAppearancePage(settings));
-        window.add(this._buildAdvancedPage(settings));
     }
 
     _makeRow(title, widget) {
@@ -24,44 +22,58 @@ export default class NetMonitorPrefs extends ExtensionPreferences {
         return row;
     }
 
+    _makeSwitch(settings, key, title) {
+        const toggle = new Gtk.Switch();
+        settings.bind(key, toggle, 'active', Gio.SettingsBindFlags.DEFAULT);
+        return this._makeRow(title, toggle);
+    }
+
     _buildGeneralPage(settings) {
         const page = new Adw.PreferencesPage();
         page.set_title('General');
         page.set_name('General');
 
-        const group = new Adw.PreferencesGroup();
-
-        const enabledSwitch = new Gtk.Switch({ active: settings.get_boolean('enabled') });
-        settings.bind('enabled', enabledSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
-        group.add(this._makeRow('Enable Monitoring', enabledSwitch));
-
-        const pausedSwitch = new Gtk.Switch({ active: settings.get_boolean('start-paused') });
-        settings.bind('start-paused', pausedSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
-        group.add(this._makeRow('Start Paused', pausedSwitch));
+        const sampling = new Adw.PreferencesGroup();
+        sampling.add(this._makeSwitch(settings, 'start-paused', 'Start Paused'));
 
         const intervalSpin = new Gtk.SpinButton({
             adjustment: new Gtk.Adjustment({
                 lower: 500, upper: 5000, step_increment: 100, page_increment: 500
             })
         });
-        intervalSpin.set_value(settings.get_int('refresh-interval-ms'));
         settings.bind('refresh-interval-ms', intervalSpin, 'value', Gio.SettingsBindFlags.DEFAULT);
-        group.add(this._makeRow('Refresh Interval (ms)', intervalSpin));
+        sampling.add(this._makeRow('Refresh Interval (ms)', intervalSpin));
 
         const precisionSpin = new Gtk.SpinButton({
             adjustment: new Gtk.Adjustment({
                 lower: 0, upper: 3, step_increment: 1, page_increment: 1
             })
         });
-        precisionSpin.set_value(settings.get_int('decimal-precision'));
         settings.bind('decimal-precision', precisionSpin, 'value', Gio.SettingsBindFlags.DEFAULT);
-        group.add(this._makeRow('Decimal Precision', precisionSpin));
+        sampling.add(this._makeRow('Decimal Precision', precisionSpin));
+        page.add(sampling);
 
-        const compactSwitch = new Gtk.Switch({ active: settings.get_boolean('show-compact') });
-        settings.bind('show-compact', compactSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
-        group.add(this._makeRow('Compact Panel Mode', compactSwitch));
+        const display = new Adw.PreferencesGroup();
+        display.set_title('Panel Display');
 
-        page.add(group);
+        const modeCombo = new Gtk.ComboBoxText();
+        modeCombo.append('down-up', 'Down & Up');
+        modeCombo.append('down-only', 'Down Only');
+        modeCombo.append('up-only', 'Up Only');
+        modeCombo.append('total-only', 'Total Only');
+        modeCombo.append('compact', 'Compact');
+        modeCombo.set_active_id(settings.get_string('panel-display-mode'));
+        settings.bind('panel-display-mode', modeCombo, 'active-id', Gio.SettingsBindFlags.DEFAULT);
+        display.add(this._makeRow('Panel Display Mode', modeCombo));
+
+        display.add(this._makeSwitch(settings, 'show-compact', 'Compact Panel Mode'));
+        page.add(display);
+
+        const advanced = new Adw.PreferencesGroup();
+        advanced.set_title('Advanced');
+        advanced.add(this._makeSwitch(settings, 'debug-enabled', 'Debug Mode'));
+        page.add(advanced);
+
         return page;
     }
 
@@ -71,24 +83,11 @@ export default class NetMonitorPrefs extends ExtensionPreferences {
         page.set_name('Interfaces');
 
         const group = new Adw.PreferencesGroup();
-
-        const autoSwitch = new Gtk.Switch({ active: settings.get_boolean('auto-detect-interfaces') });
-        settings.bind('auto-detect-interfaces', autoSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
-        group.add(this._makeRow('Auto-detect Interfaces', autoSwitch));
-
-        const loopbackSwitch = new Gtk.Switch({ active: settings.get_boolean('ignore-loopback') });
-        settings.bind('ignore-loopback', loopbackSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
-        group.add(this._makeRow('Ignore Loopback', loopbackSwitch));
-
-        const virtualSwitch = new Gtk.Switch({ active: settings.get_boolean('ignore-virtual') });
-        settings.bind('ignore-virtual', virtualSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
-        group.add(this._makeRow('Ignore Virtual Interfaces', virtualSwitch));
-
-        const vpnSwitch = new Gtk.Switch({ active: settings.get_boolean('separate-vpn') });
-        settings.bind('separate-vpn', vpnSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
-        group.add(this._makeRow('Separate VPN Traffic', vpnSwitch));
-
+        group.add(this._makeSwitch(settings, 'auto-detect-interfaces', 'Auto-detect Interfaces'));
+        group.add(this._makeSwitch(settings, 'ignore-loopback', 'Ignore Loopback'));
+        group.add(this._makeSwitch(settings, 'ignore-virtual', 'Ignore Virtual Interfaces'));
         page.add(group);
+
         return page;
     }
 
@@ -98,10 +97,7 @@ export default class NetMonitorPrefs extends ExtensionPreferences {
         page.set_name('Per-App');
 
         const group = new Adw.PreferencesGroup();
-
-        const enableSwitch = new Gtk.Switch({ active: settings.get_boolean('enable-process-monitor') });
-        settings.bind('enable-process-monitor', enableSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
-        group.add(this._makeRow('Enable Per-App Monitoring', enableSwitch));
+        group.add(this._makeSwitch(settings, 'enable-process-monitor', 'Enable Per-App Monitoring'));
 
         const groupingCombo = new Gtk.ComboBoxText();
         groupingCombo.append('disabled', 'Disabled');
@@ -119,12 +115,8 @@ export default class NetMonitorPrefs extends ExtensionPreferences {
         spin.set_value(settings.get_int('top-process-count'));
         settings.bind('top-process-count', spin, 'value', Gio.SettingsBindFlags.DEFAULT);
         group.add(this._makeRow('Top N Processes', spin));
-
-        const iconsSwitch = new Gtk.Switch({ active: settings.get_boolean('show-app-icons') });
-        settings.bind('show-app-icons', iconsSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
-        group.add(this._makeRow('Show App Icons', iconsSwitch));
-
         page.add(group);
+
         return page;
     }
 
@@ -134,10 +126,7 @@ export default class NetMonitorPrefs extends ExtensionPreferences {
         page.set_name('History');
 
         const group = new Adw.PreferencesGroup();
-
-        const enableSwitch = new Gtk.Switch({ active: settings.get_boolean('persistence-enabled') });
-        settings.bind('persistence-enabled', enableSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
-        group.add(this._makeRow('Enable History Storage', enableSwitch));
+        group.add(this._makeSwitch(settings, 'persistence-enabled', 'Enable History Storage'));
 
         const retentionSpin = new Gtk.SpinButton({
             adjustment: new Gtk.Adjustment({
@@ -147,8 +136,8 @@ export default class NetMonitorPrefs extends ExtensionPreferences {
         retentionSpin.set_value(settings.get_int('retention-days'));
         settings.bind('retention-days', retentionSpin, 'value', Gio.SettingsBindFlags.DEFAULT);
         group.add(this._makeRow('Retention (days)', retentionSpin));
-
         page.add(group);
+
         return page;
     }
 
@@ -195,59 +184,9 @@ export default class NetMonitorPrefs extends ExtensionPreferences {
         settings.bind('notification-cooldown-sec', cooldown, 'value', Gio.SettingsBindFlags.DEFAULT);
         group.add(this._makeRow('Cooldown (seconds)', cooldown));
 
-        const quietSwitch = new Gtk.Switch({ active: settings.get_boolean('quiet-hours-enabled') });
-        settings.bind('quiet-hours-enabled', quietSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
-        group.add(this._makeRow('Enable Quiet Hours', quietSwitch));
-
+        group.add(this._makeSwitch(settings, 'quiet-hours-enabled', 'Enable Quiet Hours'));
         page.add(group);
-        return page;
-    }
 
-    _buildAppearancePage(settings) {
-        const page = new Adw.PreferencesPage();
-        page.set_title('Appearance');
-        page.set_name('Appearance');
-
-        const group = new Adw.PreferencesGroup();
-
-        const modeCombo = new Gtk.ComboBoxText();
-        modeCombo.append('down-up', 'Down & Up');
-        modeCombo.append('down-only', 'Down Only');
-        modeCombo.append('up-only', 'Up Only');
-        modeCombo.append('total-only', 'Total Only');
-        modeCombo.append('compact', 'Compact');
-        modeCombo.set_active_id(settings.get_string('panel-display-mode'));
-        settings.bind('panel-display-mode', modeCombo, 'active-id', Gio.SettingsBindFlags.DEFAULT);
-        group.add(this._makeRow('Panel Display Mode', modeCombo));
-
-        const iconsSwitch = new Gtk.Switch({ active: settings.get_boolean('show-app-icons') });
-        settings.bind('show-app-icons', iconsSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
-        group.add(this._makeRow('Show App Icons in Popup', iconsSwitch));
-
-        page.add(group);
-        return page;
-    }
-
-    _buildAdvancedPage(settings) {
-        const page = new Adw.PreferencesPage();
-        page.set_title('Advanced');
-        page.set_name('Advanced');
-
-        const group = new Adw.PreferencesGroup();
-
-        const debugSwitch = new Gtk.Switch({ active: settings.get_boolean('debug-enabled') });
-        settings.bind('debug-enabled', debugSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
-        group.add(this._makeRow('Debug Mode', debugSwitch));
-
-        const unitCombo = new Gtk.ComboBoxText();
-        unitCombo.append('auto', 'Auto');
-        unitCombo.append('bytes', 'Bytes (B/s)');
-        unitCombo.append('bits', 'Bits (b/s)');
-        unitCombo.set_active_id(settings.get_string('rate-unit-mode'));
-        settings.bind('rate-unit-mode', unitCombo, 'active-id', Gio.SettingsBindFlags.DEFAULT);
-        group.add(this._makeRow('Rate Unit Mode', unitCombo));
-
-        page.add(group);
         return page;
     }
 }

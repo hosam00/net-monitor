@@ -3,12 +3,6 @@
   <schema id="org.gnome.shell.extensions.net-monitor"
           path="/org/gnome/shell/extensions/net-monitor/">
 
-    <key name="enabled" type="b">
-      <default>true</default>
-      <summary>Enable monitoring</summary>
-      <description>Whether network monitoring is active.</description>
-    </key>
-
     <key name="start-paused" type="b">
       <default>false</default>
       <summary>Start paused</summary>
@@ -19,12 +13,6 @@
       <default>1000</default>
       <summary>Refresh interval in milliseconds</summary>
       <description>How often to update panel and monitors (500-5000ms).</description>
-    </key>
-
-    <key name="rate-unit-mode" type="s">
-      <default>'auto'</default>
-      <summary>Rate unit mode</summary>
-      <description>Unit display mode: auto, bytes, or bits.</description>
     </key>
 
     <key name="decimal-precision" type="i">
@@ -67,12 +55,6 @@
       <default>true</default>
       <summary>Ignore virtual interfaces</summary>
       <description>Ignore virtual interfaces (docker, veth, br-, etc.).</description>
-    </key>
-
-    <key name="separate-vpn" type="b">
-      <default>false</default>
-      <summary>Separate VPN traffic</summary>
-      <description>Show VPN interfaces as separate entries.</description>
     </key>
 
     <key name="enable-process-monitor" type="b">
@@ -163,12 +145,6 @@
       <default>false</default>
       <summary>Compact panel mode</summary>
       <description>Show compact panel indicator.</description>
-    </key>
-
-    <key name="show-app-icons" type="b">
-      <default>true</default>
-      <summary>Show app icons</summary>
-      <description>Show application icons in the popup.</description>
     </key>
 
   </schema>

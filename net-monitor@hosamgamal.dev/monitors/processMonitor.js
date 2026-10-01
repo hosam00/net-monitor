@@ -1,6 +1,5 @@
-import { pidList, pidComm, pidCmdline, pidFds, readNetTcp, readNetTcp6 } from '../utils/procfs.js';
-import { parseTcpTable } from '../utils/parsing.js';
-import { debug, error, warn } from '../utils/debug.js';
+import { pidList, pidComm, pidCmdline } from '../utils/procfs.js';
+import { debug, error } from '../utils/debug.js';
 
 export class ProcessMonitor {
     constructor(settings) {
@@ -16,7 +15,11 @@ export class ProcessMonitor {
     }
 
     setPopupVisible(visible) {
+        if (this._popupVisible === visible) return;
         this._popupVisible = visible;
+        // Force a rescan the next time the popup opens, so the list shown to
+        // the user is never built from a stale process table.
+        if (visible) this._lastHeavyScan = 0;
     }
 
     setEnabled(enabled) {
@@ -38,7 +41,12 @@ export class ProcessMonitor {
             const now = Date.now();
             const topCount = this._settings.get_int('top-process-count');
 
-            const shouldHeavyScan = (now - this._lastHeavyScan) > this._heavyScanIntervalMs;
+            // Walking /proc for every process is by far the most expensive
+            // part of a cycle, so it only runs while the popup is open. Once
+            // the popup closes the tracked processes decay away and the scan
+            // costs nothing until it is needed again.
+            const shouldHeavyScan = this._popupVisible
+                && (now - this._lastHeavyScan) > this._heavyScanIntervalMs;
 
             if (shouldHeavyScan) {
                 this._doHeavyScan(now);
@@ -112,16 +120,17 @@ export class ProcessMonitor {
     }
 
     _distributeBandwidth(interfaceData, now) {
+        const dt = this._lastSampleTime ? (now - this._lastSampleTime) / 1000 : 1;
+        this._lastSampleTime = now;
+
+        const processCount = Object.keys(this._processes).length;
+        if (processCount === 0) return;
+
         const totalRx = interfaceData?.totalRxRate || 0;
         const totalTx = interfaceData?.totalTxRate || 0;
-        const processCount = Object.keys(this._processes).length;
-
-        if (processCount === 0) return;
 
         const perProcessRx = totalRx / processCount;
         const perProcessTx = totalTx / processCount;
-
-        const dt = this._lastSampleTime ? (now - this._lastSampleTime) / 1000 : 1;
 
         for (const proc of Object.values(this._processes)) {
             proc.rxRate = perProcessRx;
@@ -129,8 +138,6 @@ export class ProcessMonitor {
             proc.sessionRx += perProcessRx * dt;
             proc.sessionTx += perProcessTx * dt;
         }
-
-        this._lastSampleTime = now;
     }
 
     _buildAppGroups(mode) {

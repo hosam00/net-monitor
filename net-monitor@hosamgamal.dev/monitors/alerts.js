@@ -1,6 +1,5 @@
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import Gio from 'gi://Gio';
-import { debug, error, info } from '../utils/debug.js';
 import { isInQuietHours } from '../utils/time.js';
 
 export class Alerts {
