@@ -1,5 +1,6 @@
 *.compiled
 daily-totals.json
 monthly-totals.json
+counter-state.json
 .fuse_hidden*
 *.zip

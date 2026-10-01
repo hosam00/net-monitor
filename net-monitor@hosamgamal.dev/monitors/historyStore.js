@@ -15,6 +15,8 @@ export class HistoryStore {
         this._hourlySamples = [];
         this._lastRollupTime = 0;
         this._rollupIntervalMs = 30000;
+        this._prevRx = null;
+        this._prevTx = null;
         this._initDataDir();
     }
 
@@ -42,9 +44,29 @@ export class HistoryStore {
         try {
             this._dailyTotals = await this._readJson('daily-totals.json', this._dailyTotals);
             this._monthlyTotals = await this._readJson('monthly-totals.json', this._monthlyTotals);
+            this._stripLegacyFields();
+
+            // Last observed kernel counters. Persisting them means a
+            // disable/enable cycle resumes counting instead of restarting from
+            // the current counter, which would silently drop everything
+            // transferred while the extension was off.
+            const counters = await this._readJson('counter-state.json', null);
+            if (counters && typeof counters.rx === 'number' && typeof counters.tx === 'number') {
+                this._prevRx = counters.rx;
+                this._prevTx = counters.tx;
+            }
+
             debug('History data loaded from disk');
         } catch (e) {
             warn('Failed to load persisted history', e);
+        }
+    }
+
+    // byInterface was never populated or read; drop it so the persisted
+    // document stops implying a per-interface breakdown that does not exist.
+    _stripLegacyFields() {
+        for (const day of Object.keys(this._dailyTotals)) {
+            delete this._dailyTotals[day].byInterface;
         }
     }
 
@@ -71,6 +93,9 @@ export class HistoryStore {
         try {
             await this._writeJson('daily-totals.json', this._dailyTotals);
             await this._writeJson('monthly-totals.json', this._monthlyTotals);
+            if (this._prevRx !== null) {
+                await this._writeJson('counter-state.json', { rx: this._prevRx, tx: this._prevTx });
+            }
             debug('History data saved to disk');
         } catch (e) {
             error('Failed to save history data', e);
@@ -87,16 +112,11 @@ export class HistoryStore {
         const now = Date.now();
         const today = formatDate(new Date());
         const month = today.substring(0, 7);
-
         const totalRx = interfaceData?.totalRxBytes || 0;
         const totalTx = interfaceData?.totalTxBytes || 0;
 
-        if (!this._dailyTotals[today]) {
-            this._dailyTotals[today] = { rxBytes: 0, txBytes: 0, byInterface: {} };
-        }
-        if (!this._monthlyTotals[month]) {
-            this._monthlyTotals[month] = { rxBytes: 0, txBytes: 0 };
-        }
+        this._ensureBucket(this._dailyTotals, today);
+        this._ensureBucket(this._monthlyTotals, month);
 
         this._hourlySamples.push({
             timestamp: now,
@@ -110,33 +130,52 @@ export class HistoryStore {
         this._hourlySamples = this._hourlySamples.filter(s => s.timestamp > cutoff);
 
         if (now - this._lastRollupTime > this._rollupIntervalMs) {
-            await this._rollup(interfaceData);
             this._lastRollupTime = now;
+            this._accumulate(totalRx, totalTx, today, month);
+            this._pruneOldData();
+            await this._savePersistedData();
         }
     }
 
-    async _rollup(interfaceData) {
-        const now = new Date();
-        const today = formatDate(now);
-        const month = today.substring(0, 7);
-        const totalRx = interfaceData?.totalRxBytes || 0;
-        const totalTx = interfaceData?.totalTxBytes || 0;
+    _ensureBucket(store, key) {
+        if (!store[key]) {
+            store[key] = { rxBytes: 0, txBytes: 0 };
+        }
+    }
 
-        if (!this._dailyTotals[today]) {
-            this._dailyTotals[today] = { rxBytes: 0, txBytes: 0, byInterface: {} };
+    // Totals accumulate the delta between rollups instead of tracking the raw
+    // counter from /proc/net/dev. That counter is cumulative since boot and
+    // resets on reboot, so reading it directly made a day report only its
+    // largest single boot session rather than everything transferred that day.
+    _accumulate(totalRx, totalTx, today, month) {
+        // /proc/net/dev reports loopback frames, so a live system never reads
+        // zero on both directions. Zero means the read failed; consuming the
+        // baseline here would make the next real sample look like one enormous
+        // delta.
+        if (totalRx === 0 && totalTx === 0) return;
+
+        if (this._prevRx === null) {
+            // First observation: the counter already includes everything
+            // transferred before the extension started, so counting it would
+            // over-report the day.
+            this._prevRx = totalRx;
+            this._prevTx = totalTx;
+            return;
         }
 
-        this._dailyTotals[today].rxBytes = Math.max(this._dailyTotals[today].rxBytes, totalRx);
-        this._dailyTotals[today].txBytes = Math.max(this._dailyTotals[today].txBytes, totalTx);
+        // A counter that moved backwards means a reboot or an interface reset.
+        // Whatever happened in the gap cannot be recovered, so restart the
+        // delta from the new value rather than subtracting.
+        const rxDelta = totalRx >= this._prevRx ? totalRx - this._prevRx : 0;
+        const txDelta = totalTx >= this._prevTx ? totalTx - this._prevTx : 0;
 
-        if (!this._monthlyTotals[month]) {
-            this._monthlyTotals[month] = { rxBytes: 0, txBytes: 0 };
-        }
-        this._monthlyTotals[month].rxBytes = Math.max(this._monthlyTotals[month].rxBytes, totalRx);
-        this._monthlyTotals[month].txBytes = Math.max(this._monthlyTotals[month].txBytes, totalTx);
+        this._prevRx = totalRx;
+        this._prevTx = totalTx;
 
-        this._pruneOldData();
-        await this._savePersistedData();
+        this._dailyTotals[today].rxBytes += rxDelta;
+        this._dailyTotals[today].txBytes += txDelta;
+        this._monthlyTotals[month].rxBytes += rxDelta;
+        this._monthlyTotals[month].txBytes += txDelta;
     }
 
     _pruneOldData() {
