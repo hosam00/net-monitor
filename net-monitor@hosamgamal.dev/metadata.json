@@ -12,5 +12,6 @@
   ],
   "settings-schema": "org.gnome.shell.extensions.net-monitor",
   "url": "https://github.com/hosam00/net-monitor",
-  "version": 2
+  "version": 2,
+  "version-name": "50"
 }
