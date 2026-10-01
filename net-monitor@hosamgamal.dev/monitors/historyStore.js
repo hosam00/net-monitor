@@ -2,7 +2,8 @@ import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import { formatDate } from '../utils/time.js';
 import { decodeUtf8 } from '../utils/text.js';
-import { debug, error, info, warn } from '../utils/debug.js';
+import { loadContentsAsync, replaceContentsAsync, encodeBytes } from '../utils/gio.js';
+import { debug, error, warn } from '../utils/debug.js';
 
 export class HistoryStore {
     constructor(settings) {
@@ -15,7 +16,12 @@ export class HistoryStore {
         this._lastRollupTime = 0;
         this._rollupIntervalMs = 30000;
         this._initDataDir();
-        this._loadPersistedData();
+    }
+
+    // Persisted data is read asynchronously, so enable() must await this
+    // before the first sample records against the loaded totals.
+    async init() {
+        await this._loadPersistedData();
     }
 
     _initDataDir() {
@@ -32,58 +38,39 @@ export class HistoryStore {
         return GLib.build_filenamev([this._dataDir, name]);
     }
 
-    _loadPersistedData() {
+    async _loadPersistedData() {
         try {
-            const dailyPath = this._getFilePath('daily-totals.json');
-            const monthlyPath = this._getFilePath('monthly-totals.json');
-
-            if (GLib.file_test(dailyPath, GLib.FileTest.EXISTS)) {
-                const file = Gio.File.new_for_path(dailyPath);
-                const [success, contents] = file.load_contents(null);
-                if (success) {
-                    this._dailyTotals = JSON.parse(decodeUtf8(contents));
-                }
-            }
-
-            if (GLib.file_test(monthlyPath, GLib.FileTest.EXISTS)) {
-                const file = Gio.File.new_for_path(monthlyPath);
-                const [success, contents] = file.load_contents(null);
-                if (success) {
-                    this._monthlyTotals = JSON.parse(decodeUtf8(contents));
-                }
-            }
-
+            this._dailyTotals = await this._readJson('daily-totals.json', this._dailyTotals);
+            this._monthlyTotals = await this._readJson('monthly-totals.json', this._monthlyTotals);
             debug('History data loaded from disk');
         } catch (e) {
             warn('Failed to load persisted history', e);
         }
     }
 
-    _savePersistedData() {
+    async _readJson(name, fallback) {
+        const path = this._getFilePath(name);
+        if (!GLib.file_test(path, GLib.FileTest.EXISTS)) {
+            return fallback;
+        }
+        const [, contents] = await loadContentsAsync(Gio.File.new_for_path(path));
+        return JSON.parse(decodeUtf8(contents));
+    }
+
+    async _writeJson(name, data) {
+        const path = this._getFilePath(name);
+        await replaceContentsAsync(
+            Gio.File.new_for_path(path),
+            encodeBytes(JSON.stringify(data, null, 2))
+        );
+    }
+
+    async _savePersistedData() {
         if (!this._enabled) return;
 
         try {
-            const dailyPath = this._getFilePath('daily-totals.json');
-            const monthlyPath = this._getFilePath('monthly-totals.json');
-
-            const dailyFile = Gio.File.new_for_path(dailyPath);
-            dailyFile.replace_contents(
-                JSON.stringify(this._dailyTotals, null, 2),
-                null,
-                false,
-                Gio.FileCreateFlags.NONE,
-                null
-            );
-
-            const monthlyFile = Gio.File.new_for_path(monthlyPath);
-            monthlyFile.replace_contents(
-                JSON.stringify(this._monthlyTotals, null, 2),
-                null,
-                false,
-                Gio.FileCreateFlags.NONE,
-                null
-            );
-
+            await this._writeJson('daily-totals.json', this._dailyTotals);
+            await this._writeJson('monthly-totals.json', this._monthlyTotals);
             debug('History data saved to disk');
         } catch (e) {
             error('Failed to save history data', e);
@@ -94,7 +81,7 @@ export class HistoryStore {
         this._enabled = enabled;
     }
 
-    recordSample(interfaceData, processData) {
+    async recordSample(interfaceData, processData) {
         if (!this._enabled) return;
 
         const now = Date.now();
@@ -123,12 +110,12 @@ export class HistoryStore {
         this._hourlySamples = this._hourlySamples.filter(s => s.timestamp > cutoff);
 
         if (now - this._lastRollupTime > this._rollupIntervalMs) {
-            this._rollup(interfaceData);
+            await this._rollup(interfaceData);
             this._lastRollupTime = now;
         }
     }
 
-    _rollup(interfaceData) {
+    async _rollup(interfaceData) {
         const now = new Date();
         const today = formatDate(now);
         const month = today.substring(0, 7);
@@ -149,7 +136,7 @@ export class HistoryStore {
         this._monthlyTotals[month].txBytes = Math.max(this._monthlyTotals[month].txBytes, totalTx);
 
         this._pruneOldData();
-        this._savePersistedData();
+        await this._savePersistedData();
     }
 
     _pruneOldData() {
@@ -180,40 +167,6 @@ export class HistoryStore {
     getMonthTotal() {
         const month = formatDate(new Date()).substring(0, 7);
         return this._monthlyTotals[month] || { rxBytes: 0, txBytes: 0 };
-    }
-
-    getHourlyHistory() {
-        return this._hourlySamples.slice();
-    }
-
-    getDailyTotals() {
-        return { ...this._dailyTotals };
-    }
-
-    getMonthlyTotals() {
-        return { ...this._monthlyTotals };
-    }
-
-    resetAll() {
-        this._dailyTotals = {};
-        this._monthlyTotals = {};
-        this._hourlySamples = [];
-        this._savePersistedData();
-        info('All history data reset');
-    }
-
-    resetDay(day) {
-        if (this._dailyTotals[day]) {
-            delete this._dailyTotals[day];
-            this._savePersistedData();
-        }
-    }
-
-    resetMonth(month) {
-        if (this._monthlyTotals[month]) {
-            delete this._monthlyTotals[month];
-            this._savePersistedData();
-        }
     }
 
     get status() {

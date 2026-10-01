@@ -10,105 +10,107 @@ export class ProcfsError extends Error {
     }
 }
 
+// All procfs access is asynchronous on purpose. Shell code runs on the main
+// loop, and a heavy scan reads /proc/<pid>/comm and /proc/<pid>/cmdline for
+// every tracked pid -- doing that synchronously freezes the whole desktop for
+// the duration of the scan.
+
 export function readFile(path) {
-    try {
+    return new Promise((resolve, reject) => {
         const file = Gio.File.new_for_path(path);
-        const [success, contents] = file.load_contents(null);
-        if (!success) {
-            throw new ProcfsError(`Failed to read ${path}`);
-        }
-        return decodeUtf8(contents);
-    } catch (e) {
-        throw new ProcfsError(`Failed to read ${path}`, e);
-    }
+        // GJS overloads load_contents_async as (cancellable, callback).
+        file.load_contents_async(null, (source, result) => {
+            try {
+                const [, contents] = source.load_contents_finish(result);
+                resolve(decodeUtf8(contents));
+            } catch (e) {
+                reject(new ProcfsError(`Failed to read ${path}`, e));
+            }
+        });
+    });
 }
 
 export function readDir(path) {
-    try {
+    return new Promise((resolve, reject) => {
         const file = Gio.File.new_for_path(path);
-        const enumerator = file.enumerate_children(
+        const fail = cause => reject(new ProcfsError(`Failed to read directory ${path}`, cause));
+
+        file.enumerate_children_async(
             'standard::name',
             Gio.FileQueryInfoFlags.NONE,
-            null
+            GLib.PRIORITY_DEFAULT,
+            null,
+            (source, result) => {
+                let enumerator;
+                try {
+                    enumerator = source.enumerate_children_finish(result);
+                } catch (e) {
+                    fail(e);
+                    return;
+                }
+
+                const entries = [];
+                // GJS has no next_file_async; enumeration is batched through
+                // next_files_async, which returns an empty array at the end.
+                const step = () => {
+                    enumerator.next_files_async(64, GLib.PRIORITY_DEFAULT, null, (en, res) => {
+                        let infos;
+                        try {
+                            infos = en.next_files_finish(res);
+                        } catch (e) {
+                            fail(e);
+                            return;
+                        }
+
+                        if (infos.length === 0) {
+                            enumerator.close_async(GLib.PRIORITY_DEFAULT, null, (ce, cr) => {
+                                try {
+                                    ce.close_finish(cr);
+                                } catch {
+                                    // Nothing actionable; the entries are already collected.
+                                }
+                                resolve(entries);
+                            });
+                            return;
+                        }
+
+                        for (const info of infos) {
+                            entries.push(info.get_name());
+                        }
+                        step();
+                    });
+                };
+                step();
+            }
         );
-        const entries = [];
-        let info;
-        while ((info = enumerator.next_file(null)) !== null) {
-            entries.push(info.get_name());
-        }
-        enumerator.close(null);
-        return entries;
-    } catch (e) {
-        throw new ProcfsError(`Failed to read directory ${path}`, e);
-    }
+    });
 }
 
-export function fileExists(path) {
-    return GLib.file_test(path, GLib.FileTest.EXISTS);
-}
-
-export function pidList() {
-    const entries = readDir('/proc');
+export async function pidList() {
+    const entries = await readDir('/proc');
     return entries
         .filter(e => /^\d+$/.test(e))
         .map(e => parseInt(e, 10));
 }
 
-export function pidCmdline(pid) {
+export async function pidCmdline(pid) {
     try {
-        const content = readFile(`/proc/${pid}/cmdline`);
+        const content = await readFile(`/proc/${pid}/cmdline`);
         return content.split('\0').filter(s => s.length > 0);
-    } catch (e) {
+    } catch {
         return [];
     }
 }
 
-export function pidComm(pid) {
+export async function pidComm(pid) {
     try {
-        return readFile(`/proc/${pid}/comm`).trim();
-    } catch (e) {
+        const content = await readFile(`/proc/${pid}/comm`);
+        return content.trim();
+    } catch {
         return null;
-    }
-}
-
-export function pidStatus(pid) {
-    try {
-        const content = readFile(`/proc/${pid}/status`);
-        const result = {};
-        for (const line of content.split('\n')) {
-            const colon = line.indexOf(':');
-            if (colon > 0) {
-                const key = line.substring(0, colon).trim();
-                const value = line.substring(colon + 1).trim();
-                result[key] = value;
-            }
-        }
-        return result;
-    } catch (e) {
-        return null;
-    }
-}
-
-export function pidFds(pid) {
-    try {
-        return readDir(`/proc/${pid}/fd`);
-    } catch (e) {
-        return [];
     }
 }
 
 export function readNetDev() {
     return readFile('/proc/net/dev');
-}
-
-export function readNetTcp() {
-    return readFile('/proc/net/tcp');
-}
-
-export function readNetTcp6() {
-    try {
-        return readFile('/proc/net/tcp6');
-    } catch (e) {
-        return null;
-    }
 }

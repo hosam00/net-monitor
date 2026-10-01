@@ -14,37 +14,15 @@ export class InterfaceMonitor {
         this._historyLength = 5;
     }
 
-    get interfaces() {
-        return this._interfaces;
-    }
-
-    get sessionTotals() {
-        return this._sessionTotals;
-    }
-
     setEnabled(enabled) {
         this._enabled = enabled;
     }
 
-    getActiveInterfaces() {
-        const active = [];
-        for (const [name, data] of Object.entries(this._interfaces)) {
-            if (data.isActive) {
-                active.push(name);
-            }
-        }
-        return active;
-    }
-
-    resetSessionTotals() {
-        this._sessionTotals = {};
-    }
-
-    sample() {
+    async sample() {
         if (!this._enabled) return null;
 
         try {
-            const content = readNetDev();
+            const content = await readNetDev();
             const parsed = parseNetDev(content);
             const now = Date.now();
 

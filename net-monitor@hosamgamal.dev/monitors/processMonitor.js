@@ -34,7 +34,7 @@ export class ProcessMonitor {
         return this._appGroups;
     }
 
-    sample(interfaceData) {
+    async sample(interfaceData) {
         if (!this._enabled) return null;
 
         try {
@@ -49,7 +49,7 @@ export class ProcessMonitor {
                 && (now - this._lastHeavyScan) > this._heavyScanIntervalMs;
 
             if (shouldHeavyScan) {
-                this._doHeavyScan(now);
+                await this._doHeavyScan(now);
                 this._lastHeavyScan = now;
             }
 
@@ -81,9 +81,9 @@ export class ProcessMonitor {
         }
     }
 
-    _doHeavyScan(now) {
+    async _doHeavyScan(now) {
         const ignored = this._settings.get_strv('ignored-processes');
-        const allPids = pidList();
+        const allPids = await pidList();
 
         // Only check a limited number of PIDs (skip kernel threads and short-lived)
         let checked = 0;
@@ -92,15 +92,14 @@ export class ProcessMonitor {
         for (const pid of allPids) {
             if (checked >= MAX_CHECK) break;
 
-            const comm = pidComm(pid);
+            const comm = await pidComm(pid);
             if (!comm) continue;
             if (ignored.includes(comm)) continue;
             if (comm.startsWith('k') && comm.endsWith('d')) continue;
 
             checked++;
 
-            let cmdline = [];
-            try { cmdline = pidCmdline(pid); } catch { }
+            const cmdline = await pidCmdline(pid);
 
             const existing = this._processes[pid];
             this._processes[pid] = {

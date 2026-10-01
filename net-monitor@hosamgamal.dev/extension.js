@@ -11,12 +11,15 @@ import {MonitorMenu} from './menu.js';
 import {setDebugEnabled, error, info} from './utils/debug.js';
 
 export default class NetMonitorExtension extends Extension {
-    enable() {
+    async enable() {
         this._settings = this.getSettings();
+        this._signalHandlers = [];
+        this._destroyed = false;
+        this._sampling = false;
 
         setDebugEnabled(this._settings.get_boolean('debug-enabled'));
 
-        this._settings.connect('changed::debug-enabled', () => {
+        this._connect(this._settings, 'changed::debug-enabled', () => {
             setDebugEnabled(this._settings.get_boolean('debug-enabled'));
         });
 
@@ -25,6 +28,7 @@ export default class NetMonitorExtension extends Extension {
         this._interfaceMonitor = new InterfaceMonitor(this._settings);
         this._processMonitor = new ProcessMonitor(this._settings);
         this._historyStore = new HistoryStore(this._settings);
+        await this._historyStore.init();
         this._alerts = new Alerts(this._settings);
 
         this._indicator = new PanelIndicator(this._settings);
@@ -41,9 +45,19 @@ export default class NetMonitorExtension extends Extension {
 
         // Heavy per-process scans only run while the popup is open. Resample
         // on open so the app list is populated the moment it becomes visible.
-        this._indicator.menu.connect('open-state-changed', (menu, open) => {
+        this._connect(this._indicator.menu, 'open-state-changed', (menu, open) => {
             this._processMonitor.setPopupVisible(open);
             if (open) this._doSample();
+        });
+
+        this._connect(this._settings, 'changed::refresh-interval-ms', () => {
+            this._restartTimer();
+        });
+        this._connect(this._settings, 'changed::enable-process-monitor', () => {
+            this._processMonitor.setEnabled(this._settings.get_boolean('enable-process-monitor'));
+        });
+        this._connect(this._settings, 'changed::persistence-enabled', () => {
+            this._historyStore.setEnabled(this._settings.get_boolean('persistence-enabled'));
         });
 
         if (!this._paused) {
@@ -53,24 +67,35 @@ export default class NetMonitorExtension extends Extension {
             this._indicator.setState('paused');
         }
 
-        this._settings.connect('changed::refresh-interval-ms', () => {
-            this._restartTimer();
-        });
-        this._settings.connect('changed::enable-process-monitor', () => {
-            this._processMonitor.setEnabled(this._settings.get_boolean('enable-process-monitor'));
-        });
-        this._settings.connect('changed::persistence-enabled', () => {
-            this._historyStore.setEnabled(this._settings.get_boolean('persistence-enabled'));
-        });
-
         info('Extension enabled');
     }
 
+    // Every signal opened in enable() is recorded here so disable() can close
+    // it again; the EGO linter (EGO-L-003) requires explicit disconnection.
+    _connect(source, signal, callback) {
+        this._signalHandlers.push([source, source.connect(signal, callback)]);
+    }
+
+    _disconnectAll() {
+        for (const [source, id] of this._signalHandlers) {
+            try {
+                source.disconnect(id);
+            } catch {
+                // Already destroyed along with its owner.
+            }
+        }
+        this._signalHandlers = [];
+    }
+
     disable() {
+        this._destroyed = true;
+
         if (this._timerId) {
             GLib.source_remove(this._timerId);
             this._timerId = null;
         }
+
+        this._disconnectAll();
 
         if (this._menu) {
             this._menu.destroy();
@@ -124,11 +149,16 @@ export default class NetMonitorExtension extends Extension {
         }
     }
 
-    _doSample() {
-        if (this._paused) return;
+    async _doSample() {
+        if (this._paused || this._destroyed) return;
+        // The timer can fire while an async scan is still in flight; without
+        // this the two cycles would interleave and corrupt the rate deltas.
+        if (this._sampling) return;
+        this._sampling = true;
 
         try {
-            const interfaceData = this._interfaceMonitor.sample();
+            const interfaceData = await this._interfaceMonitor.sample();
+            if (this._destroyed) return;
             if (!interfaceData) {
                 this._indicator.setState('disconnected');
                 return;
@@ -136,10 +166,12 @@ export default class NetMonitorExtension extends Extension {
 
             let processData = null;
             if (this._settings.get_boolean('enable-process-monitor')) {
-                processData = this._processMonitor.sample(interfaceData);
+                processData = await this._processMonitor.sample(interfaceData);
+                if (this._destroyed) return;
             }
 
-            this._historyStore.recordSample(interfaceData, processData);
+            await this._historyStore.recordSample(interfaceData, processData);
+            if (this._destroyed) return;
 
             const historyTotals = {
                 today: this._historyStore.getTodayTotal(),
@@ -174,6 +206,8 @@ export default class NetMonitorExtension extends Extension {
             const msg = (e && e.message) ? e.message : String(e);
             const stack = (e && e.stack) ? '\n' + e.stack : '';
             error('Sample cycle failed: ' + msg + stack);
+        } finally {
+            this._sampling = false;
         }
     }
 }
