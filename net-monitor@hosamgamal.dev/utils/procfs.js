@@ -1,5 +1,6 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import { decodeUtf8 } from './text.js';
 
 export class ProcfsError extends Error {
     constructor(message, cause = null) {
@@ -16,7 +17,7 @@ export function readFile(path) {
         if (!success) {
             throw new ProcfsError(`Failed to read ${path}`);
         }
-        return contents.toString('utf-8');
+        return decodeUtf8(contents);
     } catch (e) {
         throw new ProcfsError(`Failed to read ${path}`, e);
     }

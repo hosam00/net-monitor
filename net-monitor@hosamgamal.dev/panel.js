@@ -49,7 +49,28 @@ export var PanelIndicator = GObject.registerClass({
         this._updateDisplay();
     }
 
+    _updateIcon() {
+        let name = PANEL_ICON_NAME;
+        if (this._state === 'disconnected') {
+            name = 'network-offline-symbolic';
+        } else if (this._state === 'alert') {
+            name = 'dialog-warning-symbolic';
+        } else if (this._state === 'paused') {
+            name = 'media-playback-pause-symbolic';
+        }
+
+        // Guard the setter: _updateDisplay() runs on every sample tick, and
+        // re-setting an unchanged icon_name forces a needless theme lookup.
+        if (this._icon.icon_name !== name) {
+            this._icon.icon_name = name;
+        }
+    }
+
     _updateDisplay() {
+        // Icon state must be applied before the early returns below, otherwise
+        // compact mode and the pre-first-sample state would never repaint it.
+        this._updateIcon();
+
         if (!this._currentData) {
             this._label.text = '↓ 0 B/s ↑ 0 B/s';
             return;
@@ -85,16 +106,6 @@ export var PanelIndicator = GObject.registerClass({
             default:
                 this._label.text = `↓ ${formatRate(totalRxRate, 'auto', precision)}  ↑ ${formatRate(totalTxRate, 'auto', precision)}`;
                 break;
-        }
-
-        if (this._state === 'disconnected') {
-            this._icon.icon_name = 'network-offline-symbolic';
-        } else if (this._state === 'alert') {
-            this._icon.icon_name = 'dialog-warning-symbolic';
-        } else if (this._state === 'paused') {
-            this._icon.icon_name = 'media-playback-pause-symbolic';
-        } else {
-            this._icon.icon_name = PANEL_ICON_NAME;
         }
     }
 });

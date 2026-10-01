@@ -1,6 +1,7 @@
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import { formatDate } from '../utils/time.js';
+import { decodeUtf8 } from '../utils/text.js';
 import { debug, error, info, warn } from '../utils/debug.js';
 
 export class HistoryStore {
@@ -40,7 +41,7 @@ export class HistoryStore {
                 const file = Gio.File.new_for_path(dailyPath);
                 const [success, contents] = file.load_contents(null);
                 if (success) {
-                    this._dailyTotals = JSON.parse(contents.toString('utf-8'));
+                    this._dailyTotals = JSON.parse(decodeUtf8(contents));
                 }
             }
 
@@ -48,7 +49,7 @@ export class HistoryStore {
                 const file = Gio.File.new_for_path(monthlyPath);
                 const [success, contents] = file.load_contents(null);
                 if (success) {
-                    this._monthlyTotals = JSON.parse(contents.toString('utf-8'));
+                    this._monthlyTotals = JSON.parse(decodeUtf8(contents));
                 }
             }
 
